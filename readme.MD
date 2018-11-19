@@ -291,6 +291,7 @@ python3 manage.py collectstatic
 ```
 
 static files upload under your s3 bucket's static directory
+
 You must recieved no error
 
 <p>7. start server</p>
