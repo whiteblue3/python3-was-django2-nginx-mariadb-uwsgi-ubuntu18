@@ -9,8 +9,8 @@ uWSGI
 NginX
 
 AWS EC2
-AWS S3
-AWS RDS (option)
+AWS S3 (Needs static and media directory under your s3 bucket)
+AWS RDS (option, tested mysql and mariadb)
 ```
 
 
@@ -45,6 +45,8 @@ mkdir logs/django
 touch logs/django/log
 ```
 
+This directory use for django log
+
 
 NginX Configuration
 ===================
@@ -54,6 +56,8 @@ NginX Configuration
 ```
 sudo apt-get install nginx nginx-extras
 ```
+
+nignx-extras need for hide or change "Server" headers you want
 
 <p>2. configure /etc/nginx/nginx.conf<p>
 
@@ -66,6 +70,8 @@ http {
 }
 ```
 
+This option is uses for security issue
+
 - set TLS version
 ```
 http {
@@ -74,6 +80,8 @@ http {
 ...
 }
 ```
+
+This option is uses for security issue
 
 - set security headers
 ```
@@ -86,9 +94,9 @@ http {
         proxy_hide_header X-Powered-By;
         proxy_hide_header X-Pingback;
         proxy_hide_header X-Link;
-        more_set_headers "Server: server"; # Hide and change your server header
+        more_set_headers "Server: server"; # You can change your HTTP "Server" header anything you want. DO NOT set this field to nginx, apache or anyother server name.
 
-        set_real_ip_from    0.0.0.0/0;
+        set_real_ip_from    0.0.0.0/0; # Allow any other client ip to logging
         real_ip_header      X-Forwarded-For; # Set access log to real ip
 ...
 }
@@ -96,14 +104,7 @@ http {
 
 <p>3. configure /etc/nginx/sites-available/default :</p>
 
-- add was upstream
-```
-upstream api_server {
-        server 127.0.0.1:8080 fail_timeout=0;
-}
-```
-
-- additionally you can redirect http to https
+- you can redirect http to https for security issue
 ```
 server {
         listen 80;
@@ -113,7 +114,7 @@ server {
 }
 ```
 
-- additionally you can configure default information
+- setup default information
 ```
 server {
 ...
@@ -122,7 +123,7 @@ server {
         charset utf-8;
 
         # SSL configuration
-        #
+        # This is optional for https
         listen 443 ssl http2 default_server;
         listen [::]:443 ssl http2 default_server ipv6only=on;
 ...
@@ -134,13 +135,81 @@ server {
 server {
 ...
 	add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
-        add_header X-Frame-Options "DENY";
+        add_header X-Frame-Options "DENY"; # or SAMEORIGIN is also safe.
         add_header X-Content-Type-Options "nosniff";
         add_header Cache-Control "no-cache";
         add_header X-XSS-Protection "1; mode=block";
 ...
 }
 ```
+
+This options are also included in django settings
+
+/srv/was/conf/settings/base.py :
+
+```
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 63072000
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+```
+
+If you want to use django setup. you must comment above setup
+
+```
+server {
+...
+	#add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+        #add_header X-Frame-Options "DENY"; # or SAMEORIGIN is also safe.
+        #add_header X-Content-Type-Options "nosniff";
+        add_header Cache-Control "no-cache";
+        #add_header X-XSS-Protection "1; mode=block";
+...
+}
+```
+
+Also if you want to use nginx setup. you must comment was/conf/settings/base.py
+
+```
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+#SECURE_HSTS_SECONDS = 63072000
+#SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+#SECURE_HSTS_PRELOAD = True
+#SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+#X_FRAME_OPTIONS = 'SAMEORIGIN'
+```
+
+- additionally you can use your custom ssl certificate
+```
+server {
+...
+	ssl_certificate /path/to/signed_cert_plus_intermediates; # your certificate path
+	ssl_certificate_key /path/to/private_key; # your private certificate path
+	ssl_session_timeout 1d;
+	ssl_session_cache shared:SSL:50m;
+	ssl_session_tickets off;
+	
+	ssl_protocols TLSv1.2;
+	ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';
+	ssl_prefer_server_ciphers on;
+	
+	ssl_stapling on;
+	ssl_stapling_verify on;
+	
+	## verify chain of trust of OCSP response using Root CA and Intermediate certs
+	ssl_trusted_certificate /path/to/root_CA_cert_plus_intermediates;
+
+	resolver <IP DNS resolver>;
+...
+}
+```
+
 
 - keeyalive timeout setup
 ```
@@ -160,13 +229,17 @@ server {
 }
 ```
 
+This is prevent to hacker cannot acquire server type like apache or nginx, lighttpd...
+
 - allow and enable your python was
 ```
 server {
 ...
 	location / {
-                try_files $uri $uri/ =404;
+		# This is not safe. you should create custom error pages
+                #try_files $uri $uri/ =404;
 
+		# Setup this for your environment
                 limit_except GET POST {
                         deny all;
                 }
@@ -214,10 +287,16 @@ chdir = /srv/was
 module = was.wsgi:application
 ```
 
+wsgi-file is under anywhere you want path. input your wsgi.py path. default is /srv/was/conf/wsgi.py
+
+chdir is your project path. default is /srv/was
+
+module is your was wsgi application name. default is was.wsgi:application
+
 <p>3. install uwsgi via pip3 and enable it</p>
 
 ```
-sudo -H pip3 install uwsgi
+sudo -H pip3 install uwsgi # or no need this line
 sudo systemctl start uwsgi
 sudo systemctl enable uwsgi
 ```
@@ -241,10 +320,19 @@ StandardError=syslog
 WantedBy=multi-user.target
 ```
 
+--die-on-term : if your uwsgi is killed. this option is auto-start uwsgi
+
+--emperor : your was.ini directory path
 
 
 DJango WAS Project Installations
 ================================
+
+un-archive python3-was-django2-nginx-mariadb-uwsgi-ubuntu18.tar to under /srv
+
+you will show was, logs directory is under python3-was-django2-nginx-mariadb-uwsgi-ubuntu18
+
+please move was and logs directory to /srv
 
 <p>1. install awscli</p>
 
@@ -282,6 +370,18 @@ You must create access key first on you aws console
 
 configure settings/base.py, settings/dev.py, settings/prod.py accept your environment
 
+if you are not want to service https, comment this lines on settings/base.py
+
+settings/base.py :
+
+```
+#SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+#SECURE_SSL_REDIRECT = True
+```
+
+This will disable https
+
+
 <p>6. test associate with aws s3</p>
 
 First of all, your s3 bucket needs static and media directory
@@ -305,15 +405,12 @@ or
 python3 manage.py runsslserver 8080
 ```
 
-- Remote Server (Test)
+- Remote Server Test
 ```
 ./start_was.sh
 ```
 
-- Remote Server (Live)
-```
-sudo service uwsgi restart
-```
+if you get some error, please check your configurations and AWS 
 
 
 Start Server
@@ -333,7 +430,7 @@ add lines below
 @reboot sudo systemctl uwsgi start
 ```
 
-and ctrl+x -> y to save and exit
+and save, exit
 
 
 start nginx server and uwsgi was
