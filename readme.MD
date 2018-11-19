@@ -7,6 +7,10 @@ Python >= 3.6.6
 DJango >= 2.1.2
 uWSGI
 NginX
+
+AWS EC2
+AWS S3
+AWS RDS (option)
 ```
 
 
