@@ -284,10 +284,13 @@ configure settings/base.py, settings/dev.py, settings/prod.py accept your enviro
 
 <p>6. test associate with aws s3</p>
 
+First of all, your s3 bucket needs static and media directory
+
 ```
-	python3 manage.py collectstatic
+python3 manage.py collectstatic
 ```
 
+static files upload under your s3 bucket's static directory
 You must recieved no error
 
 <p>7. start server</p>
