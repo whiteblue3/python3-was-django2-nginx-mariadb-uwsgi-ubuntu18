@@ -239,6 +239,7 @@ server {
 ...
 	location / {
 		# This is not safe. you should create custom error pages
+		# you must disable it to use django include function
                 #try_files $uri $uri/ =404;
 
 		# Setup this for your environment
