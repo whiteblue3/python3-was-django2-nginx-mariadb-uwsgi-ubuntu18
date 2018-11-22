@@ -148,6 +148,8 @@ This options are also included in django settings
 /srv/was/conf/settings/base.py :
 
 ```
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') #for HTTPS
+SECURE_SSL_REDIRECT = True #for HTTPS
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 63072000
