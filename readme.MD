@@ -397,7 +397,13 @@ static files upload under your s3 bucket's static directory
 
 You must recieved no error
 
-<p>7. start server</p>
+<p>7. Install Python3 DJango2 dependencies</p>
+
+```
+sudo -H pip3 install -r requirements.txt
+```
+
+<p>8. start server</p>
 
 - Local Test
 ```	
